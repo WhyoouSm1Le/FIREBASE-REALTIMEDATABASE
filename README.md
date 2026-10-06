@@ -34,3 +34,131 @@ Aplikasi **Flutter** yang terintegrasi dengan **Firebase Realtime Database (RTDB
 ![Halaman utama Firebase](docs/images/01-firebase-home.png)
 
 > Banner "Get $300 to unlock all Firebase features" **tidak perlu diklik**. Praktik ini cukup memakai paket gratis **Spark plan**.
+
+### Langkah 2 — Buat Project Baru
+
+Di halaman konsol, klik **Create a new Firebase project**.
+
+![Halaman konsol Firebase](docs/images/02-firebase-console.png)
+
+### Langkah 3 — Beri Nama Project
+
+1. Isi **Project name**, pada contoh ini: `firebaserealtimedatabase`.
+2. Firebase otomatis membuat **Project ID** unik (contoh: `fir-realtimedatabase-7a054`). ID ini bisa berbeda di akun masing-masing.
+3. Klik **Continue**, lalu ikuti langkah berikutnya sampai project selesai dibuat. Opsi tambahan seperti Gemini atau Google Analytics tidak wajib untuk praktik ini.
+
+![Memberi nama project](docs/images/03-project-name.png)
+
+Setelah selesai, kamu akan masuk ke halaman **Project Overview** dengan label **Spark plan** (gratis, $0/bulan).
+
+---
+
+## 2. Membuat Realtime Database
+
+### Langkah 4 — Buka Menu Realtime Database
+
+Di sidebar kiri, pilih **Databases and storage** lalu klik **Realtime Database** (di bagian *NoSQL*).
+
+> Jangan tertukar dengan **Firestore**. Keduanya sama-sama NoSQL, tetapi contoh ini memakai **Realtime Database**.
+
+![Menu Databases and storage](docs/images/04-menu-database.png)
+
+### Langkah 5 — Create Database
+
+Klik tombol **Create Database**.
+
+![Halaman awal Realtime Database](docs/images/05-create-database.png)
+
+### Langkah 6 — Pilih Lokasi Database
+
+Pada langkah **Database options**, pilih lokasi server. Untuk pengguna di Indonesia, pilih **Singapore (asia-southeast1)** karena paling dekat sehingga latensinya lebih rendah. Lalu klik **Next**.
+
+![Memilih lokasi database](docs/images/06-database-location.png)
+
+---
+
+## 3. Mengatur Security Rules
+
+### Langkah 7 — Pilih Mode Awal
+
+Pada langkah **Security rules**, ada dua pilihan:
+
+| Mode | Keterangan |
+|------|------------|
+| **Locked mode** | Semua akses dari client ditolak (`.read` dan `.write` bernilai `false`). Paling aman, tetapi aplikasi belum bisa membaca/menulis. |
+| **Test mode** | Akses terbuka sementara. Aturan harus diperbarui dalam 30 hari. |
+
+Pada contoh ini pilih **Start in locked mode**, lalu klik **Enable**. Rules akan diubah manual pada langkah berikutnya.
+
+![Pilihan security rules](docs/images/07-security-rules-mode.png)
+
+### Langkah 8 — Ubah Rules agar Bisa Dibaca/Ditulis (untuk Praktik)
+
+1. Buka tab **Rules**.
+2. Ubah isinya menjadi:
+
+```json
+{
+  "rules": {
+    ".read": true,
+    ".write": true
+  }
+}
+```
+
+3. Klik **Publish** agar perubahan berlaku.
+
+![Mengubah rules](docs/images/10-rules.png)
+
+> ⚠️ **Peringatan keamanan**
+> Rules di atas membuat database **terbuka untuk siapa saja** yang memiliki URL-nya. Gunakan hanya untuk **belajar dan pengujian**. Untuk proyek akhir yang sesungguhnya, tambahkan **Firebase Authentication** dan batasi akses, misalnya:
+>
+> ```json
+> {
+>   "rules": {
+>     ".read": "auth != null",
+>     ".write": "auth != null"
+>   }
+> }
+> ```
+
+---
+
+## 4. Membuat Struktur Data (Path)
+
+### Langkah 9 — Tambah Data Manual
+
+1. Buka tab **Data**.
+2. Klik ikon **+** di samping URL database.
+3. Isi **Key** dan **Value**, lalu klik **Add**.
+4. Ulangi untuk setiap path yang dibutuhkan.
+
+Catatan: **URL database** (contoh: `https://fir-realtimedatabase-7a054-default-rtdb.asia-southeast1.firebasedatabase.app`) akan dipakai pada aplikasi Flutter, jadi salin dan simpan.
+
+![Menambah data manual](docs/images/08-add-data.png)
+
+### Langkah 10 — Hasil Struktur Data
+
+Buat tiga path berikut dengan nilai awal `0`:
+
+| Key | Value | Contoh Kegunaan |
+|-----|-------|-----------------|
+| `DataSuhu` | `0` | Suhu dari sensor |
+| `DataKelembaban` | `0` | Kelembaban udara |
+| `DataTanah` | `0` | Kelembaban tanah |
+
+Struktur JSON-nya:
+
+```json
+{
+  "DataSuhu": 0,
+  "DataKelembaban": 0,
+  "DataTanah": 0
+}
+```
+
+![Struktur data akhir](docs/images/09-data-result.png)
+
+**Cara menguji:** klik value pada salah satu path (misalnya `DataSuhu`), ubah angkanya (misalnya menjadi `30`), lalu tekan Enter. Nilai ini nantinya akan langsung berubah di aplikasi Flutter tanpa perlu refresh.
+
+---
