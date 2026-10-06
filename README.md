@@ -76,3 +76,50 @@ Pada langkah **Database options**, pilih lokasi server. Untuk pengguna di Indone
 ![Memilih lokasi database](docs/images/06-database-location.png)
 
 ---
+
+## 3. Mengatur Security Rules
+
+### Langkah 7 — Pilih Mode Awal
+
+Pada langkah **Security rules**, ada dua pilihan:
+
+| Mode | Keterangan |
+|------|------------|
+| **Locked mode** | Semua akses dari client ditolak (`.read` dan `.write` bernilai `false`). Paling aman, tetapi aplikasi belum bisa membaca/menulis. |
+| **Test mode** | Akses terbuka sementara. Aturan harus diperbarui dalam 30 hari. |
+
+Pada contoh ini pilih **Start in locked mode**, lalu klik **Enable**. Rules akan diubah manual pada langkah berikutnya.
+
+![Pilihan security rules](docs/images/07-security-rules-mode.png)
+
+### Langkah 8 — Ubah Rules agar Bisa Dibaca/Ditulis (untuk Praktik)
+
+1. Buka tab **Rules**.
+2. Ubah isinya menjadi:
+
+```json
+{
+  "rules": {
+    ".read": true,
+    ".write": true
+  }
+}
+```
+
+3. Klik **Publish** agar perubahan berlaku.
+
+![Mengubah rules](docs/images/10-rules.png)
+
+> ⚠️ **Peringatan keamanan**
+> Rules di atas membuat database **terbuka untuk siapa saja** yang memiliki URL-nya. Gunakan hanya untuk **belajar dan pengujian**. Untuk proyek akhir yang sesungguhnya, tambahkan **Firebase Authentication** dan batasi akses, misalnya:
+>
+> ```json
+> {
+>   "rules": {
+>     ".read": "auth != null",
+>     ".write": "auth != null"
+>   }
+> }
+> ```
+
+---
