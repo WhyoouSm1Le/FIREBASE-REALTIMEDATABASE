@@ -34,3 +34,21 @@ Aplikasi **Flutter** yang terintegrasi dengan **Firebase Realtime Database (RTDB
 ![Halaman utama Firebase](docs/images/01-firebase-home.png)
 
 > Banner "Get $300 to unlock all Firebase features" **tidak perlu diklik**. Praktik ini cukup memakai paket gratis **Spark plan**.
+
+### Langkah 2 — Buat Project Baru
+
+Di halaman konsol, klik **Create a new Firebase project**.
+
+![Halaman konsol Firebase](docs/images/02-firebase-console.png)
+
+### Langkah 3 — Beri Nama Project
+
+1. Isi **Project name**, pada contoh ini: `firebaserealtimedatabase`.
+2. Firebase otomatis membuat **Project ID** unik (contoh: `fir-realtimedatabase-7a054`). ID ini bisa berbeda di akun masing-masing.
+3. Klik **Continue**, lalu ikuti langkah berikutnya sampai project selesai dibuat. Opsi tambahan seperti Gemini atau Google Analytics tidak wajib untuk praktik ini.
+
+![Memberi nama project](docs/images/03-project-name.png)
+
+Setelah selesai, kamu akan masuk ke halaman **Project Overview** dengan label **Spark plan** (gratis, $0/bulan).
+
+---
