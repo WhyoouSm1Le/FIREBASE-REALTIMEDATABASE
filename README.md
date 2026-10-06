@@ -23,3 +23,14 @@ Aplikasi **Flutter** yang terintegrasi dengan **Firebase Realtime Database (RTDB
 - Koneksi internet
 
 ---
+
+## 1. Membuat Project Firebase
+
+### Langkah 1 — Buka Firebase Console
+
+1. Buka [https://firebase.google.com](https://firebase.google.com).
+2. Login dengan akun Google, lalu klik **Buka konsol** (pojok kanan atas).
+
+![Halaman utama Firebase](docs/images/01-firebase-home.png)
+
+> Banner "Get $300 to unlock all Firebase features" **tidak perlu diklik**. Praktik ini cukup memakai paket gratis **Spark plan**.
