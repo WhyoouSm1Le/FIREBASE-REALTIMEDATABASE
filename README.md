@@ -52,3 +52,27 @@ Di halaman konsol, klik **Create a new Firebase project**.
 Setelah selesai, kamu akan masuk ke halaman **Project Overview** dengan label **Spark plan** (gratis, $0/bulan).
 
 ---
+
+## 2. Membuat Realtime Database
+
+### Langkah 4 — Buka Menu Realtime Database
+
+Di sidebar kiri, pilih **Databases and storage** lalu klik **Realtime Database** (di bagian *NoSQL*).
+
+> Jangan tertukar dengan **Firestore**. Keduanya sama-sama NoSQL, tetapi contoh ini memakai **Realtime Database**.
+
+![Menu Databases and storage](docs/images/04-menu-database.png)
+
+### Langkah 5 — Create Database
+
+Klik tombol **Create Database**.
+
+![Halaman awal Realtime Database](docs/images/05-create-database.png)
+
+### Langkah 6 — Pilih Lokasi Database
+
+Pada langkah **Database options**, pilih lokasi server. Untuk pengguna di Indonesia, pilih **Singapore (asia-southeast1)** karena paling dekat sehingga latensinya lebih rendah. Lalu klik **Next**.
+
+![Memilih lokasi database](docs/images/06-database-location.png)
+
+---
