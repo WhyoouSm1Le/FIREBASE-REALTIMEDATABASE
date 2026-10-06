@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "556033310301",
+    "firebase_url": "https://fir-rtdb-ce819-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "fir-rtdb-ce819",
+    "storage_bucket": "fir-rtdb-ce819.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:556033310301:android:295f2653da78762a86d7b4",
+        "android_client_info": {
+          "package_name": "com.example.firebase_rtdb"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCsebMPj9rI9_Ec44qAYXcrPVgWNO-E7Lc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
