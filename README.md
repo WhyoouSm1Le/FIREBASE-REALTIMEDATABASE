@@ -123,3 +123,42 @@ Pada contoh ini pilih **Start in locked mode**, lalu klik **Enable**. Rules akan
 > ```
 
 ---
+
+## 4. Membuat Struktur Data (Path)
+
+### Langkah 9 — Tambah Data Manual
+
+1. Buka tab **Data**.
+2. Klik ikon **+** di samping URL database.
+3. Isi **Key** dan **Value**, lalu klik **Add**.
+4. Ulangi untuk setiap path yang dibutuhkan.
+
+Catatan: **URL database** (contoh: `https://fir-realtimedatabase-7a054-default-rtdb.asia-southeast1.firebasedatabase.app`) akan dipakai pada aplikasi Flutter, jadi salin dan simpan.
+
+![Menambah data manual](docs/images/08-add-data.png)
+
+### Langkah 10 — Hasil Struktur Data
+
+Buat tiga path berikut dengan nilai awal `0`:
+
+| Key | Value | Contoh Kegunaan |
+|-----|-------|-----------------|
+| `DataSuhu` | `0` | Suhu dari sensor |
+| `DataKelembaban` | `0` | Kelembaban udara |
+| `DataTanah` | `0` | Kelembaban tanah |
+
+Struktur JSON-nya:
+
+```json
+{
+  "DataSuhu": 0,
+  "DataKelembaban": 0,
+  "DataTanah": 0
+}
+```
+
+![Struktur data akhir](docs/images/09-data-result.png)
+
+**Cara menguji:** klik value pada salah satu path (misalnya `DataSuhu`), ubah angkanya (misalnya menjadi `30`), lalu tekan Enter. Nilai ini nantinya akan langsung berubah di aplikasi Flutter tanpa perlu refresh.
+
+---
