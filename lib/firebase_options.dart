@@ -21,7 +21,10 @@ class DefaultFirebaseOptions {
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
-        return android;
+        throw UnsupportedError(
+          'DefaultFirebaseOptions have not been configured for ios - '
+          'you can reconfigure this by running the FlutterFire CLI again.',
+        );
       case TargetPlatform.iOS:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for ios - '
@@ -50,21 +53,12 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyDVg7zNqBZcu9T7EAdaEM83QRvWVPgd0G4',
-    appId: '1:556033310301:web:3ad4b2fa2c58e22286d7b4',
-    messagingSenderId: '556033310301',
-    projectId: 'fir-rtdb-ce819',
-    authDomain: 'fir-rtdb-ce819.firebaseapp.com',
-    databaseURL: 'https://fir-rtdb-ce819-default-rtdb.asia-southeast1.firebasedatabase.app',
-    storageBucket: 'fir-rtdb-ce819.firebasestorage.app',
-  );
-
-  static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyCsebMPj9rI9_Ec44qAYXcrPVgWNO-E7Lc',
-    appId: '1:556033310301:android:295f2653da78762a86d7b4',
-    messagingSenderId: '556033310301',
-    projectId: 'fir-rtdb-ce819',
-    databaseURL: 'https://fir-rtdb-ce819-default-rtdb.asia-southeast1.firebasedatabase.app',
-    storageBucket: 'fir-rtdb-ce819.firebasestorage.app',
+    apiKey: 'AIzaSyDXkKsjmegAN1yZ3gNn_dMFD759FY2liG4',
+    appId: '1:95493385261:web:2dc5d76028cbf7bccf1ca4',
+    messagingSenderId: '95493385261',
+    projectId: 'fir-realtimedatabase-7a054',
+    authDomain: 'fir-realtimedatabase-7a054.firebaseapp.com',
+    databaseURL: 'https://fir-realtimedatabase-7a054-default-rtdb.asia-southeast1.firebasedatabase.app',
+    storageBucket: 'fir-realtimedatabase-7a054.firebasestorage.app',
   );
 }
