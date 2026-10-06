@@ -12,3 +12,14 @@ Aplikasi **Flutter** yang terintegrasi dengan **Firebase Realtime Database (RTDB
 6. [Menghubungkan Flutter ke Firebase](#5-menghubungkan-flutter-ke-firebase)
 7. [Membaca Data Realtime di Flutter](#6-membaca-data-realtime-di-flutter)
 8. [Menjalankan Aplikasi Di Web (Chrome/EDGE)](#menjalankan-aplikasi-di-web-(chrome/edge))
+
+---
+
+## Prasyarat
+
+- Akun Google
+- Flutter SDK terpasang (`flutter doctor` tanpa error)
+- Editor (VS Code / Android Studio)
+- Koneksi internet
+
+---
