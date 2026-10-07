@@ -4,14 +4,420 @@ Aplikasi **Flutter** yang terintegrasi dengan **Firebase Realtime Database (RTDB
 
 ## Daftar Isi
 
-1. [Prasyarat](#prasyarat)
-2. [Membuat Project Firebase](#1-membuat-project-firebase)
-3. [Membuat Realtime Database](#2-membuat-realtime-database)
-4. [Mengatur Security Rules](#3-mengatur-security-rules)
-5. [Membuat Struktur Data (Path)](#4-membuat-struktur-data-path)
-6. [Menghubungkan Flutter ke Firebase](#5-menghubungkan-flutter-ke-firebase)
-7. [Membaca Data Realtime di Flutter](#6-membaca-data-realtime-di-flutter)
-8. [Menjalankan Aplikasi Di Web (Chrome/EDGE)](#menjalankan-aplikasi-di-web-chromeedge)
+- [Dasar Teori](#dasar-teori)
+  - [A. Firebase Realtime Database dan NoSQL JSON Tree](#a-firebase-realtime-database)
+  - [B. JSON, `jsonEncode`, dan `jsonDecode`](#b-json)
+  - [C. API dan REST API](#c-api-dan-rest-api)
+  - [D. Firebase RTDB sebagai REST API](#d-firebase-rtdb-sebagai-rest-api)
+  - [E. Firebase RTDB sebagai WebSocket](#e-firebase-rtdb-sebagai-websocket)
+  - [F. Ringkasan Hubungan Antar Konsep](#f-ringkasan-hubungan-antar-konsep)
+- [Prasyarat](#prasyarat)
+- [1. Membuat Project Firebase](#1-membuat-project-firebase)
+- [2. Membuat Realtime Database](#2-membuat-realtime-database)
+- [3. Mengatur Security Rules](#3-mengatur-security-rules)
+- [4. Membuat Struktur Data (Path)](#4-membuat-struktur-data-path)
+- [5. Menghubungkan Flutter ke Firebase](#5-menghubungkan-flutter-ke-firebase)
+- [6. Membaca Data Realtime di Flutter](#6-membaca-data-realtime-di-flutter)
+  - [Alur Data](#alur-data)
+  - [Memahami Provider (State Management)](#memahami-provider-state-management)
+- Menjalankan Aplikasi di Web (Chrome/Edge) *(segera)*
+
+---
+
+## Dasar Teori
+
+Sebelum membuat aplikasi, pahami dulu konsep-konsep yang dipakai di project ini. Bagian ini menjelaskan **apa itu Firebase Realtime Database**, **JSON**, **API dan REST API**, serta **WebSocket**, termasuk bagaimana semuanya saling berhubungan dalam sistem IoT.
+
+### A. Firebase Realtime Database
+
+#### Apa itu Firebase?
+
+**Firebase** adalah platform dari Google yang menyediakan berbagai layanan *backend* siap pakai (database, autentikasi, hosting, notifikasi, dan lainnya). Developer tidak perlu membangun dan merawat server sendiri.
+
+#### Apa itu Realtime Database?
+
+**Firebase Realtime Database (RTDB)** adalah database berbasis **cloud** yang menyimpan data dan **menyinkronkannya secara realtime** ke semua perangkat yang sedang terhubung. Begitu satu nilai berubah, semua aplikasi yang "mendengarkan" nilai itu langsung menerima perubahannya tanpa perlu *refresh*.
+
+| Fitur | Penjelasan |
+|-------|------------|
+| **Realtime** | Perubahan data langsung didorong (*push*) ke semua client yang berlangganan. |
+| **Cloud** | Data tersimpan di server Google, bisa diakses dari mana saja lewat internet. |
+| **Lintas platform** | Bisa diakses dari Flutter, Android, iOS, web, hingga mikrokontroler (lewat REST API). |
+| **Offline support** | SDK menyimpan salinan data sementara, sehingga aplikasi tetap bisa menampilkan data terakhir saat koneksi terputus, lalu otomatis menyinkronkan lagi saat terhubung kembali. |
+| **Security Rules** | Aturan untuk menentukan siapa yang boleh membaca dan menulis (lihat [Mengatur Security Rules](#3-mengatur-security-rules)). |
+
+> Paket gratis (**Spark plan**) memiliki batas kuota penyimpanan dan transfer data. Kuota bisa berubah, jadi cek halaman *Pricing* Firebase untuk angka terbarunya.
+
+#### SQL vs NoSQL
+
+Database secara garis besar ada dua jenis:
+
+| | **SQL (Relasional)** | **NoSQL** |
+|--|----------------------|-----------|
+| Bentuk data | **Tabel** berisi baris dan kolom | Fleksibel: dokumen, key-value, graf, atau pohon |
+| Skema | Kaku, kolom harus didefinisikan dulu | Bebas, struktur bisa berubah kapan saja |
+| Bahasa query | SQL (`SELECT`, `INSERT`, ...) | Tergantung produk (di RTDB: lewat *path*) |
+| Contoh | MySQL, PostgreSQL, SQLite | Firebase RTDB, Firestore, MongoDB |
+
+Contoh data sensor pada database **SQL**:
+
+| id | suhu | kelembaban | tanah |
+|----|------|------------|-------|
+| 1 | 30 | 70 | 45 |
+
+Data yang sama pada **NoSQL berbasis JSON tree** (RTDB):
+
+```json
+{
+  "DataSuhu": 30,
+  "DataKelembaban": 70,
+  "DataTanah": 45
+}
+```
+
+Tidak ada tabel, kolom, maupun perintah `CREATE TABLE`. Cukup tulis data pada sebuah alamat (*path*).
+
+#### NoSQL berbasis JSON Tree
+
+Seluruh isi Realtime Database adalah **satu pohon JSON yang besar**. Setiap bagian pohon punya nama khusus:
+
+```
+/                              ← root (akar): titik awal seluruh database
+├── DataKelembaban : 0         ← node (cabang) dengan nilai 0 (leaf / daun)
+├── DataSuhu       : 0
+└── DataTanah      : 0
+```
+
+| Istilah | Arti | Contoh |
+|---------|------|--------|
+| **Root** | Akar pohon, semua data berada di bawahnya | `/` |
+| **Node** | Satu titik pada pohon, punya nama (*key*) | `DataSuhu` |
+| **Child** | Node yang berada di bawah node lain | `DataSuhu` adalah child dari root |
+| **Leaf** | Node paling ujung yang berisi nilai | `0`, `30`, `"aktif"` |
+| **Path** | Alamat menuju sebuah node | `/DataSuhu` |
+
+Jika node punya anak lagi, strukturnya menjadi bertingkat:
+
+```json
+{
+  "Perangkat1": {
+    "DataSuhu": 30,
+    "DataTanah": 45
+  },
+  "Perangkat2": {
+    "DataSuhu": 28,
+    "DataTanah": 50
+  }
+}
+```
+
+Path `/Perangkat1/DataSuhu` menunjuk ke nilai `30`.
+
+**Hal yang perlu diketahui:**
+
+- Tipe nilai yang didukung: string, angka, boolean, dan objek. Menulis `null` pada sebuah node berarti **menghapusnya**. Node kosong tidak disimpan.
+- RTDB tidak punya tipe *array* asli. Array disimpan sebagai objek dengan key `0, 1, 2, ...`.
+- Nama key tidak boleh mengandung karakter `.` `$` `#` `[` `]` `/`. Ada juga batas panjang key dan kedalaman pohon (cek dokumentasi resmi).
+- Membaca sebuah path berarti ikut membaca **semua data di bawahnya**, jadi rancang struktur yang tidak terlalu dalam dan tidak terlalu besar.
+
+**Kenapa cocok untuk proyek IoT?**
+
+| Kelebihan | Kekurangan |
+|-----------|------------|
+| Sinkronisasi realtime bawaan, tanpa membuat server sendiri | Kemampuan query dan filter terbatas dibanding SQL |
+| Struktur fleksibel, mudah menambah sensor baru | Data historis/log perlu didesain sendiri (misalnya dengan `POST`) |
+| Bisa ditulis perangkat lewat REST API yang sederhana | Rules yang terlalu longgar berisiko keamanan |
+| Gratis untuk skala belajar | Pembacaan path induk mengambil seluruh data di bawahnya |
+
+---
+
+### B. JSON
+
+#### Apa itu JSON?
+
+**JSON** (*JavaScript Object Notation*) adalah **format teks** untuk menyimpan dan mempertukarkan data dalam bentuk pasangan **key–value**. JSON mudah dibaca manusia, mudah diproses mesin, dan didukung hampir semua bahasa pemrograman (Dart, Python, C++/Arduino, JavaScript, dan lainnya).
+
+```json
+{
+  "DataSuhu": 30.5,
+  "DataKelembaban": 70,
+  "perangkat": "ESP32-01",
+  "aktif": true,
+  "catatan": null
+}
+```
+
+#### Format pertukaran data yang ada
+
+JSON bukan satu-satunya format. Berikut perbandingannya:
+
+| Format | Contoh | Ciri | Pemakaian umum |
+|--------|--------|------|----------------|
+| **JSON** | `{"suhu": 30}` | Ringan, hierarkis, mudah dibaca | REST API, aplikasi web/mobile, Firebase |
+| **XML** | `<suhu>30</suhu>` | Berbasis tag, lebih panjang/verbose | Sistem lama, konfigurasi, SOAP |
+| **CSV** | `suhu,tanah` ⏎ `30,45` | Tabel datar, sangat sederhana | Ekspor data, spreadsheet, data logging |
+| **YAML** | `suhu: 30` | Sangat mudah dibaca manusia | File konfigurasi (misalnya `pubspec.yaml`) |
+| **Protobuf / biner** | (bukan teks) | Sangat kecil dan cepat, tidak terbaca manusia | Komunikasi performa tinggi (gRPC) |
+
+#### Format yang dipakai di project ini: JSON
+
+Realtime Database menyimpan dan mengirim data dalam **JSON**. Alasan JSON dipakai:
+
+1. **Format asli RTDB.** Seluruh database adalah pohon JSON, jadi tidak perlu konversi tambahan.
+2. **Ringan.** Lebih singkat dari XML, cocok untuk perangkat IoT dan koneksi internet terbatas.
+3. **Hierarkis.** Struktur bertingkat (objek di dalam objek) sesuai dengan bentuk pohon RTDB.
+4. **Didukung luas.** Dart, ESP32/ESP8266 (library ArduinoJson), Python, dan Postman semuanya bisa membaca dan menulis JSON.
+5. **Standar REST API.** Hampir semua REST API modern memakai JSON sebagai format utama.
+
+#### Tipe data dalam JSON
+
+| Tipe JSON | Contoh | Padanan di Dart |
+|-----------|--------|-----------------|
+| String | `"ESP32"` | `String` |
+| Number | `30`, `70.5` | `int` atau `double` |
+| Boolean | `true`, `false` | `bool` |
+| Null | `null` | `null` |
+| Object | `{"a": 1}` | `Map<String, dynamic>` |
+| Array | `[1, 2, 3]` | `List<dynamic>` |
+
+**Aturan penulisan JSON:**
+
+- Key **wajib** diapit tanda kutip ganda: `"DataSuhu"`.
+- String memakai tanda kutip ganda, **bukan** kutip tunggal.
+- Tidak boleh ada koma di akhir elemen terakhir (*trailing comma*).
+- Tidak ada komentar.
+
+> Perhatikan perbedaan `30` (angka) dan `"30"` (string). Keduanya valid di JSON, tetapi tipenya berbeda. Inilah alasan `SensorService` perlu menyeragamkan nilai (dijelaskan di [Langkah 23](#langkah-23--sensor_servicedart)).
+
+#### `jsonEncode` dan `jsonDecode`
+
+Data di jaringan berbentuk **teks JSON**, sedangkan di dalam program Dart berbentuk **objek** (`Map`, `List`, dan sebagainya). Dua fungsi dari `dart:convert` menjembatani keduanya:
+
+| Fungsi | Arah | Nama istilah | Keterangan |
+|--------|------|--------------|------------|
+| `jsonDecode(String)` | teks JSON → objek Dart | *Decode / parse / deserialisasi* | Dipakai saat **menerima** data |
+| `jsonEncode(Object)` | objek Dart → teks JSON | *Encode / serialisasi* | Dipakai saat **mengirim** data |
+
+```dart
+import 'dart:convert';
+
+void main() {
+  // 1. jsonDecode: teks JSON -> objek Dart
+  const raw = '{"DataSuhu": 30, "DataKelembaban": 70.5, "DataTanah": "45"}';
+  final Map<String, dynamic> data = jsonDecode(raw);
+
+  print(data['DataSuhu']);        // 30    (int)
+  print(data['DataKelembaban']);  // 70.5  (double)
+  print(data['DataTanah']);       // 45    (String, karena ada tanda kutip!)
+
+  // 2. jsonEncode: objek Dart -> teks JSON
+  final text = jsonEncode({'DataSuhu': 31.5, 'DataTanah': 40});
+  print(text);                    // {"DataSuhu":31.5,"DataTanah":40}
+}
+```
+
+Contoh di atas menunjukkan bahwa satu JSON bisa berisi **tipe yang bercampur** (`int`, `double`, `String`). Ini penting untuk dipahami pada bagian `SensorService`.
+
+**Apakah project ini memakai `jsonEncode` / `jsonDecode`?**
+
+Tidak secara langsung. Package `firebase_database` sudah melakukan *decode* JSON dari server dan *encode* data yang dikirim secara otomatis. Hasil decode-nya langsung tersedia di `event.snapshot.value`. Kamu baru perlu `jsonDecode` / `jsonEncode` jika mengakses RTDB lewat **REST API** memakai package `http` (tanpa SDK):
+
+```dart
+// Contoh (tidak dipakai di project ini)
+final response = await http.get(Uri.parse('$baseUrl/DataSuhu.json'));
+final suhu = jsonDecode(response.body);   // teks "30" -> angka 30
+```
+
+---
+
+### C. API dan REST API
+
+#### Apa itu API?
+
+**API** (*Application Programming Interface*) adalah **perantara** yang mengatur bagaimana satu program meminta layanan atau data dari program lain, tanpa perlu tahu cara kerja di dalamnya.
+
+> **Analogi restoran:** kamu (aplikasi) memesan lewat **pelayan** (API) kepada **dapur** (server/database). Kamu tidak masuk ke dapur, cukup mengikuti menu dan aturan pemesanan.
+
+#### Apa itu REST API?
+
+**REST** (*Representational State Transfer*) adalah gaya perancangan API yang memakai protokol **HTTP**, dengan prinsip:
+
+| Prinsip | Penjelasan | Contoh |
+|---------|------------|--------|
+| **Resource punya alamat (URL)** | Setiap data punya alamat sendiri | `.../DataSuhu.json` |
+| **Method HTTP menyatakan aksi** | Jenis permintaan menentukan operasinya | `GET`, `PUT`, `PATCH`, `POST`, `DELETE` |
+| **Stateless** | Setiap permintaan berdiri sendiri, server tidak mengingat permintaan sebelumnya | Tiap `PATCH` membawa semua info yang dibutuhkan |
+| **Representasi data** | Data dikirim dalam format tertentu, umumnya JSON | `{"DataSuhu": 30}` |
+| **Kode status** | Server menjawab dengan kode angka | `200` berhasil, `401` ditolak, `404` tidak ditemukan |
+
+**Method HTTP dan padanannya (CRUD):**
+
+| Method | Aksi | Arti |
+|--------|------|------|
+| `GET` | Read | Membaca data |
+| `POST` | Create | Menambah data baru |
+| `PUT` | Create/Update | Menulis dan **menimpa seluruhnya** |
+| `PATCH` | Update | Mengubah **sebagian** data saja |
+| `DELETE` | Delete | Menghapus data |
+
+#### Hubungan API dan REST API di project ini
+
+**API** adalah konsep umum (pintu komunikasi), sedangkan **REST API** adalah salah satu bentuknya. Firebase RTDB menyediakan **dua pintu** ke data yang sama:
+
+| Pintu | Bentuk API | Dipakai oleh | Cara kerja |
+|-------|------------|--------------|------------|
+| **SDK** (`firebase_database`) | API berupa library Dart | **Aplikasi Flutter** | Koneksi persisten (WebSocket) |
+| **REST API** | API berbasis HTTP + JSON | **Hardware (ESP32), Postman**, atau program apa pun | Permintaan HTTP biasa |
+
+Keduanya mengakses **database yang sama**, sehingga data yang ditulis lewat REST API akan langsung terlihat di aplikasi Flutter.
+
+---
+
+### D. Firebase RTDB sebagai REST API
+
+Setiap *path* di Realtime Database bisa diakses seperti sebuah **endpoint REST API** dengan cara menambahkan **`.json`** di akhir URL database.
+
+```
+https://fir-realtimedatabase-7a054-default-rtdb.asia-southeast1.firebasedatabase.app/DataSuhu.json
+└────────────────────────── URL database ──────────────────────────────┘└── path ──┘└ wajib ┘
+```
+
+> Ganti URL di atas dengan **URL database milikmu** (lihat tab **Data** di Firebase Console). Tanpa akhiran `.json`, permintaan tidak akan dikenali sebagai REST API.
+
+#### Wujud REST API dari project ini
+
+Dengan struktur data `DataSuhu`, `DataKelembaban`, dan `DataTanah`, endpoint-nya adalah:
+
+| Resource | Endpoint | Isi |
+|----------|----------|-----|
+| Seluruh database | `<URL_DATABASE>/.json` | `{"DataKelembaban":0,"DataSuhu":0,"DataTanah":0}` |
+| Suhu | `<URL_DATABASE>/DataSuhu.json` | `0` |
+| Kelembaban udara | `<URL_DATABASE>/DataKelembaban.json` | `0` |
+| Kelembaban tanah | `<URL_DATABASE>/DataTanah.json` | `0` |
+
+Operasi yang bisa dilakukan:
+
+| Tujuan | Method | Endpoint | Body | Respons |
+|--------|--------|----------|------|---------|
+| Baca seluruh data | `GET` | `/.json` | - | Seluruh pohon JSON |
+| Baca suhu | `GET` | `/DataSuhu.json` | - | `30` |
+| Ganti nilai suhu | `PUT` | `/DataSuhu.json` | `30` | `30` |
+| **Ubah beberapa nilai sekaligus** | **`PATCH`** | `/.json` | `{"DataSuhu":30,"DataTanah":45}` | Data yang ditulis |
+| Tambah data dengan ID otomatis | `POST` | `/Riwayat.json` | `{"suhu":30}` | `{"name":"-Nabc..."}` |
+| Hapus data | `DELETE` | `/DataSuhu.json` | - | `null` |
+
+#### `PUT` vs `PATCH`: jangan sampai tertukar
+
+Kondisi awal database: `DataSuhu = 0`, `DataKelembaban = 0`, `DataTanah = 0`.
+
+| Perintah | Body | Hasil akhir database |
+|----------|------|----------------------|
+| `PUT /.json` | `{"DataSuhu": 30}` | ⚠️ Hanya `DataSuhu: 30`. **Dua path lain terhapus**, karena PUT menimpa seluruh isi. |
+| `PATCH /.json` | `{"DataSuhu": 30}` | ✅ `DataSuhu: 30`, sedangkan `DataKelembaban` dan `DataTanah` **tetap ada**. |
+
+Untuk mengirim data sensor, gunakan **`PATCH`** pada root (`/.json`) agar beberapa nilai terbarui sekaligus tanpa menghapus yang lain.
+
+> Jika sebuah path terhapus (misalnya lewat `DELETE`), aplikasi tidak error. Nilainya terbaca `null` dan `SensorService` mengubahnya menjadi `0` lewat nilai cadangan (*fallback*).
+
+#### Cara mencoba REST API
+
+**1. Browser (hanya `GET`)**: tempel URL `.../DataSuhu.json` ke address bar dan nilainya akan tampil.
+
+**2. Thunder Client / Postman**
+
+1. Buat *New Request*.
+2. Pilih method **PATCH**, isi URL: `<URL_DATABASE>/.json`.
+3. Buka tab **Body → JSON**, isi:
+   ```json
+   {
+     "DataSuhu": 30,
+     "DataKelembaban": 70.5,
+     "DataTanah": 45
+   }
+   ```
+4. Klik **Send**. Status **200 OK** berarti berhasil.
+
+**3. PowerShell (Windows)**
+
+```powershell
+$base = "https://fir-realtimedatabase-7a054-default-rtdb.asia-southeast1.firebasedatabase.app"
+
+# GET: membaca suhu
+Invoke-RestMethod -Uri "$base/DataSuhu.json" -Method Get
+
+# PATCH: mengubah beberapa nilai sekaligus
+$body = '{"DataSuhu": 30, "DataKelembaban": 70.5, "DataTanah": 45}'
+Invoke-RestMethod -Uri "$base/.json" -Method Patch -Body $body -ContentType "application/json"
+```
+
+**4. curl (macOS / Linux / Git Bash)**
+
+```bash
+BASE="https://fir-realtimedatabase-7a054-default-rtdb.asia-southeast1.firebasedatabase.app"
+
+curl -X PATCH -d '{"DataSuhu": 30, "DataKelembaban": 70.5}' "$BASE/.json"
+```
+
+> **Syarat:** Security Rules harus mengizinkan akses (`.read` dan `.write` bernilai `true`, seperti di Langkah 8). Jika tidak, server membalas **`401 Permission denied`**. Pada proyek sungguhan, akses diamankan dengan autentikasi dan permintaan REST menyertakan token (`?auth=<token>`).
+
+> Pada proyek akhir, perangkat seperti ESP32 mengirim data sensor dengan prinsip yang sama persis: **HTTP `PATCH` ke `/.json` berisi JSON**. Implementasi hardware tidak dibahas di dokumentasi ini.
+
+---
+
+### E. Firebase RTDB sebagai WebSocket
+
+#### Masalah pada HTTP biasa
+
+Pada REST API (HTTP), komunikasi bersifat **tanya-jawab**: client bertanya, server menjawab, lalu koneksi selesai. Server **tidak bisa mengirim data lebih dulu**. Agar aplikasi tahu ada data baru, ia harus bertanya berulang-ulang (*polling*, misalnya tiap 1 detik). Ini boros dan datanya tetap terlambat.
+
+#### Solusi: WebSocket
+
+**WebSocket** adalah protokol komunikasi **dua arah** dengan **satu koneksi yang tetap terbuka**. Setelah terhubung (*handshake*), server dapat **mendorong (*push*) data kapan saja** tanpa diminta.
+
+| | **REST API (HTTP)** | **WebSocket** |
+|--|---------------------|---------------|
+| Pola komunikasi | Tanya-jawab (client memulai) | Dua arah, server bisa mengirim duluan |
+| Koneksi | Dibuka dan ditutup per permintaan | **Satu koneksi terus terbuka** |
+| Data baru | Harus ditanya berulang (*polling*) | Langsung dikirim saat berubah |
+| Awalan URL | `http://` / `https://` | `ws://` / `wss://` (aman) |
+| Cocok untuk | Menulis/membaca sesekali, perangkat sederhana | Tampilan realtime |
+
+![REST API vs WebSocket](docs/images/27-rest-vs-websocket.png)
+
+#### Bagaimana RTDB memakai WebSocket
+
+SDK Firebase (`firebase_database`) umumnya membuka **satu koneksi WebSocket yang persisten** ke server RTDB (dengan cadangan *long polling* jika WebSocket tidak tersedia). Ketika kode memasang `.onValue`:
+
+1. Aplikasi "berlangganan" ke sebuah path lewat koneksi tersebut.
+2. Server langsung mengirim **nilai saat ini**.
+3. Setiap kali nilai di path itu berubah (dari mana pun: Console, REST API, atau hardware), server **mendorong** nilai terbaru ke semua aplikasi yang berlangganan.
+4. Jika koneksi terputus, SDK mencoba tersambung lagi secara otomatis.
+
+Inilah mesin di balik `Stream` pada [`SensorService`](#langkah-23--sensor_servicedart). Kamu tidak menulis kode WebSocket sendiri, cukup memakai `.onValue`.
+
+> REST API RTDB sebenarnya juga bisa *streaming* memakai teknik *Server-Sent Events* (header `Accept: text/event-stream`). Namun di project ini aplikasi Flutter memakai SDK, sehingga kita tidak memakainya.
+
+#### Gabungan di project ini
+
+| Tahap | Pelaku | Teknologi | Peran |
+|-------|--------|-----------|-------|
+| 1 | Hardware / Postman | **REST API** (`PATCH`) | **Menulis** data ke database |
+| 2 | Firebase RTDB | JSON tree | **Menyimpan** data dan mengetahui ada perubahan |
+| 3 | Aplikasi Flutter | **WebSocket** (`onValue`) | **Menerima** perubahan secara realtime |
+
+Itulah sebabnya saat kamu mengirim `PATCH` lewat Postman, angka di aplikasi Flutter berubah seketika tanpa *refresh*.
+
+### F. Ringkasan Hubungan Antar Konsep
+
+| Konsep | Peran di project ini |
+|--------|----------------------|
+| **Firebase RTDB** | Penyimpan data sensor di cloud |
+| **NoSQL / JSON tree** | Bentuk penyimpanan: pohon dengan path `DataSuhu`, `DataKelembaban`, `DataTanah` |
+| **JSON** | Format data yang disimpan dan dikirim |
+| **`jsonEncode` / `jsonDecode`** | Penerjemah JSON ↔ objek Dart (dilakukan otomatis oleh SDK) |
+| **API** | Pintu akses ke data (SDK dan REST) |
+| **REST API** | Jalur **menulis** dari hardware/Postman (`PATCH`, `GET`, dll.) |
+| **WebSocket** | Jalur **menerima** data realtime di aplikasi (`onValue`) |
 
 ---
 
@@ -453,22 +859,79 @@ Kode lengkapnya dibahas pada bagian [Membaca Data Realtime di Flutter](#6-membac
 
 ## 6. Membaca Data Realtime di Flutter
 
-Pada bagian ini aplikasi dibangun untuk **menampilkan data suhu, kelembaban udara, dan kelembaban tanah** dari Firebase Realtime Database secara **realtime**. Saat nilai di RTDB berubah (misalnya lewat Firebase Console), tampilan aplikasi ikut berubah tanpa refresh.
+Pada bagian ini aplikasi dibangun untuk **menampilkan data suhu, kelembaban udara, dan kelembaban tanah** dari Firebase Realtime Database secara **realtime**. Saat nilai di RTDB berubah (lewat Firebase Console atau REST API), tampilan aplikasi ikut berubah tanpa refresh.
 
 ### Alur Data
 
-```
-Firebase Realtime Database  (DataSuhu / DataKelembaban / DataTanah)
-            │  onValue (stream)
-            ▼
-SensorService   → mengubah data RTDB menjadi Stream<double>
-            │  listen()
-            ▼
-AppProvider     → menyimpan SensorModel, lalu notifyListeners()
-            │  Consumer
-            ▼
-HomePage        → menampilkan 3 CustomReadField di layar
-```
+Sebelum menulis kode, pahami dulu **perjalanan satu nilai** dari Firebase sampai muncul di layar:
+
+![Alur data dari Firebase ke layar](docs/images/24-alur-data-flutter.png)
+
+| No | Tahap | File | Yang terjadi |
+|----|-------|------|--------------|
+| 1 | **Firebase RTDB** | (cloud) | Nilai tersimpan di pohon JSON (`DataSuhu: 30`). Saat nilai berubah, server mendorongnya lewat koneksi WebSocket. |
+| 2 | **SensorService** | `sensor_service.dart` | Mendengarkan path dengan `onValue`, lalu **menyaring** nilai mentah menjadi `double` yang aman (`30` → `30.0`). Hasilnya berupa `Stream<double>`. |
+| 3 | **AppProvider** | `app_provider.dart` | Menerima angka dari stream, membuat `SensorModel` baru lewat `copyWith()`, lalu memanggil `notifyListeners()`. |
+| 4 | **HomePage** | `home_page.dart` | `Consumer` mendengar pengumuman, lalu membangun ulang tampilan: tiga `CustomReadField` menampilkan `30.0 °C`, `70.0 %`, dan `45.0 %`. |
+
+Di bawahnya, **`main.dart`** menyiapkan semuanya sebelum aplikasi tampil: menginisialisasi Firebase dan mendaftarkan `AppProvider`.
+
+### Memahami Provider (State Management)
+
+Project ini memakai package **`provider`** untuk *state management*. Bagian ini menjelaskan konsepnya secara bertahap sebelum masuk ke kode.
+
+#### Apa itu *state*?
+
+**State** adalah **data yang bisa berubah dan memengaruhi tampilan**. Pada project ini, state-nya adalah **nilai suhu, kelembaban udara, dan kelembaban tanah** (`sensorData`). Setiap nilai itu berubah, tampilan harus ikut berubah.
+
+Flutter bersifat *deklaratif*: tampilan adalah **hasil dari state**. Kamu tidak memerintah "ubah teks ini menjadi 31.5", tetapi mengubah state, lalu Flutter **menggambar ulang** tampilannya.
+
+#### Apa itu *state management*?
+
+**State management** adalah cara **mengatur di mana state disimpan, siapa yang boleh mengubahnya, dan bagaimana tampilan tahu kapan harus diperbarui**.
+
+**Kenapa tidak cukup `setState()`?**
+
+| | Tanpa state management (`StatefulWidget` + `setState`) | Dengan Provider |
+|--|--------------------------------------------------------|-----------------|
+| Tempat data | Terkunci di dalam satu widget/halaman | Disimpan di **satu tempat terpusat** (`AppProvider`) |
+| Berbagi data antarhalaman | Harus dioper lewat constructor dari satu widget ke widget lain (*prop drilling*) | Halaman mana pun cukup "mengambil" dari provider |
+| Berlangganan ke Firebase | Dimulai ulang tiap halaman dibuka | Dimulai **sekali** saat aplikasi mulai |
+| Isi kode halaman | Bercampur antara UI dan logika data | **Terpisah**: UI hanya menampilkan, logika ada di provider |
+| Kemudahan perawatan | Makin banyak halaman makin rumit | Rapi dan mudah dikembangkan |
+
+#### Tiga komponen utama Provider
+
+![Cara kerja Provider di project ini](docs/images/25-provider-konsep.png)
+
+| Komponen | Tugas | Di project ini | Analogi |
+|----------|-------|----------------|---------|
+| **`ChangeNotifier`** | Kelas yang **menyimpan data** dan bisa **mengumumkan** bahwa datanya berubah (`notifyListeners()`) | `AppProvider` | Sebuah **kanal YouTube** yang bisa mengirim notifikasi |
+| **`ChangeNotifierProvider`** | **Menaruh** `ChangeNotifier` di atas pohon widget agar bisa diakses semua widget di bawahnya, sekaligus membuat dan membuangnya | `main.dart` | **Platform YouTube** yang menyediakan kanal ke semua penonton |
+| **`Consumer`** | Widget yang **berlangganan**: setiap ada pengumuman, `builder`-nya dijalankan ulang sehingga tampilan diperbarui | `home_page.dart` | **Penonton** yang subscribe dan menyalakan lonceng notifikasi |
+
+Perhatikan pada gambar: `ChangeNotifierProvider` berada **di atas `MaterialApp`**, sehingga semua halaman di dalamnya (`SplashScreen`, `HomePage`, dan halaman yang dibuka lewat `Navigator.push`) bisa mengakses `AppProvider`.
+
+#### Siklus pembaruan data
+
+![Siklus pembaruan data dengan Provider](docs/images/26-provider-siklus.png)
+
+1. Nilai di RTDB berubah (misalnya `DataSuhu` dari `30` menjadi `31.5`).
+2. Stream mengirim nilai baru, lalu callback `listen()` di `AppProvider` membuat `SensorModel` baru lewat `copyWith()`.
+3. `notifyListeners()` **mengumumkan** ke semua `Consumer` bahwa data sudah berubah.
+4. `Consumer` menjalankan ulang `builder`-nya, dan layar menampilkan `31.5 °C`.
+
+Setelah itu stream tetap terbuka dan menunggu perubahan berikutnya, sehingga siklus ini terus berulang selama aplikasi berjalan.
+
+> ⚠️ **`notifyListeners()` wajib dipanggil.** Mengubah `sensorData` saja tidak membuat layar berubah. `notifyListeners()` adalah "lonceng" yang memberi tahu Flutter untuk menggambar ulang.
+
+#### Tiga cara membaca provider di widget
+
+| Cara | Perilaku | Dipakai saat |
+|------|----------|--------------|
+| `Consumer<AppProvider>` | `builder` dijalankan ulang tiap ada notifikasi, hanya bagian di dalam `builder` yang dibangun ulang | Menampilkan data yang berubah (**dipakai di project ini**) |
+| `context.watch<AppProvider>()` | Seluruh `build()` dijalankan ulang tiap ada notifikasi | Versi singkat dari `Consumer` |
+| `context.read<AppProvider>()` | Membaca sekali, **tidak** berlangganan perubahan | Dipanggil dari tombol atau aksi (misalnya mengirim perintah) |
 
 ### Langkah 19 — Tambahkan Package
 
@@ -511,12 +974,7 @@ Gambar tersedia di folder `assets` pada repositori ini:
 
 Buat folder `assets` di **root project** (sejajar dengan `pubspec.yaml`, bukan di dalam `lib`), lalu masukkan gambar berikut dengan nama file yang **persis sama**:
 
-```
-assets/
-├── thermometer.png
-├── humidity_sensor.png
-└── soil_analysis.png
-```
+![Isi folder assets](docs/images/23-folder-assets.png)
 
 **3. Daftarkan di `pubspec.yaml`**
 
@@ -607,28 +1065,71 @@ class SensorModel {
 }
 ```
 
-#### Penjelasan
+#### Apa itu model?
 
-- **`class SensorModel`** adalah "wadah" data. Satu objek `SensorModel` merepresentasikan pembacaan ketiga sensor sekaligus.
-- **`temp`, `humidity`, `soil`** masing-masing menyimpan suhu, kelembaban udara, dan kelembaban tanah dalam tipe `double` (bilangan desimal).
-- **`final`** artinya nilai tidak bisa diubah setelah objek dibuat (*immutable*). Jika ada data baru, yang dibuat adalah objek baru, bukan mengubah yang lama.
-- **Constructor dengan `this.temp = 0.0`** memberi **nilai awal 0.0**. Jadi `SensorModel()` tanpa parameter langsung berisi `0.0` untuk semua sensor. Ini nilai yang tampil di layar sebelum data dari Firebase tiba.
-- **`copyWith`** membuat **salinan** objek dengan sebagian nilai diganti. Tanda `?` pada `double?` artinya parameter boleh tidak diisi. Operator `??` berarti *"pakai nilai baru jika ada, kalau tidak pakai nilai lama"*.
+**Model** adalah "formulir" yang bentuknya sudah ditentukan. Bayangkan sebuah **kartu data sensor** dengan tiga kolom isian: suhu, kelembaban udara, dan kelembaban tanah. Satu objek `SensorModel` adalah **satu kartu yang sudah terisi**.
 
-Contoh: karena field bersifat `final`, saat hanya suhu yang berubah menjadi 30:
+Tanpa model, kita harus membawa tiga variabel terpisah ke mana-mana (`temp`, `humidity`, `soil`). Dengan model, ketiganya dibungkus menjadi **satu objek** yang rapi, aman dari salah nama, dan mudah ditambah (misalnya sensor pH nanti cukup menambah satu field).
+
+#### Penjelasan bagian per bagian
+
+| Kode | Arti |
+|------|------|
+| `class SensorModel` | Cetak biru "kartu data sensor". |
+| `final double temp;` | Kolom suhu. Tipe `double` karena bisa berkoma (`30.5`). |
+| `final double humidity;` | Kolom kelembaban udara. |
+| `final double soil;` | Kolom kelembaban tanah. |
+| `SensorModel({ this.temp = 0.0, ... })` | *Constructor*: cara membuat kartu baru. Tanda `{ }` berarti **parameter bernama** (dipanggil `SensorModel(temp: 30)`). `this.temp` langsung mengisi field `temp`. |
+| `= 0.0` | **Nilai awal.** Jika tidak diisi, otomatis `0.0`, sehingga layar punya angka yang valid sebelum data dari Firebase tiba. |
+
+#### Kenapa field memakai `final`?
+
+`final` artinya nilai **tidak bisa diubah** setelah objek dibuat (*immutable*). Ibaratnya kartu yang sudah **dicetak**: isinya tidak bisa dihapus atau ditulis ulang. Kalau ada data baru, yang dibuat adalah **kartu baru**.
+
+Kenapa dibuat begitu? Karena:
+
+- Perubahan menjadi **jelas dan mudah dilacak**: setiap data baru = objek baru.
+- Mencegah bug akibat nilai berubah diam-diam dari tempat lain.
+- Sesuai pola yang dianjurkan di Flutter dan Provider.
+
+#### Apa itu `copyWith` dan kenapa kartu dibuat ulang?
+
+Karena field bersifat `final`, kita **tidak bisa** menulis `sensorData.temp = 30`. Jalan satu-satunya adalah **membuat objek baru**. Di sinilah `copyWith` berperan:
+
+> **`copyWith` = fotokopi kartu lama, lalu mengganti hanya kolom yang berubah.**
 
 ```dart
 sensorData = sensorData.copyWith(temp: 30);
-// humidity dan soil tetap memakai nilai sebelumnya
+// suhu = 30 (baru), kelembaban dan tanah = salinan dari nilai lama
 ```
 
-Pola `copyWith` ini dipakai di `AppProvider` karena ketiga sensor datang lewat aliran data yang terpisah.
+**Cara kerjanya:**
+
+| Bagian | Arti |
+|--------|------|
+| `double? temp` | Tanda `?` artinya parameter **boleh tidak diisi** (bernilai `null`). |
+| `temp ?? this.temp` | Operator `??` berarti: *"pakai `temp` baru jika ada; kalau tidak, pakai `temp` milik objek ini"*. |
+| `this.` | Merujuk ke **objek yang sedang dipanggil** (kartu lama). |
+| `return SensorModel(...)` | Mengembalikan **kartu baru** hasil kombinasi nilai baru dan nilai lama. |
+
+#### Kenapa tidak membuat `SensorModel(temp: 30)` saja?
+
+Karena tiga sensor datang dari **tiga stream terpisah**, dan nilainya tidak tiba bersamaan. Jika setiap kali membuat objek dari nol, **nilai sensor lain ikut tereset** ke `0.0`.
+
+| Waktu | Kejadian | Cara salah: `SensorModel(temp: x)` | Cara benar: `copyWith` |
+|-------|----------|------------------------------------|------------------------|
+| 0 | Aplikasi dibuka | suhu 0, lembab 0, tanah 0 | suhu 0, lembab 0, tanah 0 |
+| 1 | `DataSuhu` tiba: **30** | suhu 30, lembab 0, tanah 0 | suhu 30, lembab 0, tanah 0 |
+| 2 | `DataKelembaban` tiba: **70** | suhu **0** ❌, lembab 70, tanah 0 | suhu **30** ✅, lembab 70, tanah 0 |
+| 3 | `DataTanah` tiba: **45** | suhu **0** ❌, lembab **0** ❌, tanah 45 | suhu 30, lembab 70, tanah 45 ✅ |
+
+Dengan `copyWith`, tiap sensor hanya mengganti kolomnya sendiri dan **tidak merusak data sensor lain**.
 
 ---
 
 ### Langkah 23 — `sensor_service.dart`
 
-Berisi kelas **service** yang mengambil data dari Firebase Realtime Database.
+Berisi kelas **service** yang mengambil data dari Firebase Realtime Database dan **menyaringnya** menjadi angka yang aman dipakai aplikasi.
 
 ```dart
 import 'package:firebase_database/firebase_database.dart';
@@ -656,30 +1157,88 @@ class SensorService {
 }
 ```
 
-#### Penjelasan
+#### Memahami `Stream`
+
+| | `Future` | `Stream` |
+|--|----------|----------|
+| Hasil | **Satu** nilai di masa depan | **Banyak** nilai dari waktu ke waktu |
+| Analogi | Memesan satu paket | **Ban berjalan** (konveyor) yang terus mengantar paket |
+| Cocok untuk | Mengambil data sekali | Data yang terus berubah (sensor) |
+
+`.onValue` adalah **ban berjalan** dari Firebase: ia mengirim nilai **saat pertama kali dipasang**, lalu **mengirim lagi setiap kali nilai berubah**. Sedangkan `.map(...)` adalah **pos pemeriksaan** di tengah ban berjalan: setiap paket yang lewat diperiksa dan diubah dulu sebelum diteruskan.
+
+#### Perjalanan satu nilai: dari data mentah sampai masuk ke model
+
+Contoh: `DataSuhu` diubah menjadi **30**, misalnya lewat Postman.
+
+| No | Tahap | Bentuk data | Keterangan |
+|----|-------|-------------|------------|
+| 1 | Tersimpan di server | JSON: `{"DataSuhu": 30}` | Data mentah di cloud. |
+| 2 | Dikirim ke aplikasi | Teks JSON lewat **WebSocket** | Server mendorong perubahan ke aplikasi. |
+| 3 | Diterjemahkan oleh SDK | Objek Dart (`DatabaseEvent`) | SDK melakukan *decode* JSON otomatis (seperti `jsonDecode`). |
+| 4 | Masuk ke stream `.onValue` | `event` | Satu "paket" tiba di ban berjalan. |
+| 5 | Dibuka | `event.snapshot.value` bertipe `Object?` | Isinya bisa `int`, `double`, `String`, `bool`, `Map`, atau `null`. **Belum aman dipakai.** |
+| 6 | **Penyeragaman** | `.toString()` → `"30"` | Apa pun tipenya, diubah menjadi **teks**. |
+| 7 | **Pemaksaan ke angka** | `double.tryParse("30")` → `30.0` | Teks dipaksa menjadi `double`. Jika gagal hasilnya `null`. |
+| 8 | **Nilai cadangan** | `?? 0` → `30.0` | Jika hasilnya `null`, diganti `0`. Dijamin **tidak pernah `null`**. |
+| 9 | Keluar dari service | `Stream<double>` | Paket bersih bertipe `double`. |
+| 10 | Diterima provider | `copyWith(temp: 30.0)` | Masuk ke `SensorModel` dengan aman. |
+
+#### Tiga lapis penyaring data
+
+Data di Firebase **tidak punya aturan tipe**. Siapa pun (hardware, Postman, atau kamu sendiri di Console) bisa menulis `30`, `"30"`, `"abc"`, atau bahkan mengosongkannya. Aplikasi tidak boleh *crash* karena itu, jadi data disaring tiga lapis:
+
+**Lapis 1: Penyeragaman, `.toString()`**
+Nilai bisa bertipe macam-macam. Dengan `.toString()`, semuanya **diseragamkan menjadi teks** sehingga bisa diproses dengan cara yang sama. Ini juga syarat karena `double.tryParse` hanya menerima `String`. Nilai `null` pun aman karena menjadi teks `"null"`.
+
+**Lapis 2: Pemaksaan, `double.tryParse(...)`**
+Mencoba mengubah teks menjadi `double`. Berbeda dari `double.parse` yang **melempar error** saat gagal, `tryParse` mengembalikan **`null`** sehingga program tetap berjalan.
+
+**Lapis 3: Nilai cadangan (*fallback*), `?? 0`**
+Jika hasil `tryParse` adalah `null`, pakai `0`. Dengan begitu `Stream<double>` **selalu** berisi angka valid, dan `SensorModel` tidak pernah menerima `null`.
+
+#### Hasil penyaringan untuk berbagai kondisi data
+
+| Isi di Firebase | Tipe pada `snapshot.value` | Setelah `.toString()` | Setelah `tryParse` | Hasil akhir |
+|-----------------|----------------------------|-----------------------|--------------------|-------------|
+| `30` | `int` | `"30"` | `30.0` | **30.0** ✅ |
+| `28.5` | `double` | `"28.5"` | `28.5` | **28.5** ✅ |
+| `"29.7"` (teks) | `String` | `"29.7"` | `29.7` | **29.7** ✅ |
+| `"abc"` | `String` | `"abc"` | `null` | **0.0** (fallback) |
+| `"28,5"` (koma) | `String` | `"28,5"` | `null` | **0.0** (fallback) |
+| `true` | `bool` | `"true"` | `null` | **0.0** (fallback) |
+| path kosong / dihapus | `null` | `"null"` | `null` | **0.0** (fallback) |
+
+Tiga baris pertama menunjukkan **penyeragaman berhasil**: `int`, `double`, dan teks angka, semuanya berakhir sebagai `double`. Empat baris terakhir menunjukkan **jaring pengaman bekerja**: data rusak tidak membuat aplikasi *crash*.
+
+#### Kenapa tidak langsung `snapshot.value as double`?
+
+```dart
+final nilai = event.snapshot.value as double;   // ❌ berisiko
+```
+
+Jika di Firebase tertulis `30` (bilangan bulat), tipenya `int` dan baris di atas bisa **memicu error saat aplikasi berjalan**. Jika yang tertulis `null`, error juga. Kombinasi `toString` + `tryParse` + `?? 0` jauh lebih aman.
+
+#### Penjelasan baris kode
 
 | Bagian kode | Arti |
 |-------------|------|
-| `FirebaseDatabase.instance` | Objek koneksi ke Realtime Database. Alamat database diambil dari `databaseURL` di `firebase_options.dart` (itu sebabnya `databaseURL` penting). |
-| `.ref()` | Referensi ke **akar (root)** database. Disimpan di variabel `database`. |
-| `.child('DataSuhu')` | Menunjuk ke **path** `DataSuhu`. Nama harus **persis sama** dengan key di Firebase (huruf besar/kecil berpengaruh). |
-| `.onValue` | **Stream** yang mengirim data **sekali saat pertama kali dipasang**, lalu **setiap kali nilai di path itu berubah**. Inilah inti fitur *realtime*. |
-| `.map((event) { ... })` | Mengubah setiap kiriman data (`event`) menjadi bentuk yang kita mau, yaitu `double`. |
-| `event.snapshot.value` | Isi data pada path tersebut. Tipenya bisa `int`, `double`, `String`, atau `null`. |
-| `.toString()` | Mengubah isi data menjadi teks agar bisa diproses `tryParse`. |
-| `double.tryParse(...)` | Mengubah teks menjadi `double`. Jika gagal (misalnya isinya bukan angka), hasilnya `null` dan **tidak menyebabkan error**. |
-| `?? 0` | Jika hasilnya `null`, pakai `0` sebagai nilai cadangan. |
-| `Stream<double>` | Tipe kembalian: aliran data bertipe `double`. |
+| `FirebaseDatabase.instance` | Objek koneksi ke Realtime Database. Alamatnya diambil dari `databaseURL` di `firebase_options.dart`. |
+| `.ref()` | Referensi ke **root** database, disimpan di variabel `database`. |
+| `.child('DataSuhu')` | Menunjuk ke path `DataSuhu`. Nama harus **persis sama** dengan di Firebase (huruf besar/kecil berpengaruh). |
+| `.onValue` | Stream yang mengirim nilai awal, lalu setiap perubahan. |
+| `.map((event) { ... })` | Memproses setiap paket (`event`) sebelum diteruskan. |
+| `Stream<double>` | Tipe kembalian: aliran angka bertipe `double`. |
 
-Ada **tiga fungsi** karena ada **tiga path** (`DataSuhu`, `DataKelembaban`, `DataTanah`). Masing-masing menghasilkan stream sendiri.
+Ada **tiga fungsi** karena ada **tiga path**, dan masing-masing menghasilkan stream sendiri.
 
-> Saat path belum ada atau isinya kosong, `snapshot.value` bernilai `null`. Teks `"null"` tidak bisa diubah menjadi angka, sehingga hasil akhirnya `0`. Aplikasi tidak error.
+> 💡 **Keterbatasan nilai cadangan.** Angka `0` hasil *fallback* tidak bisa dibedakan dari nilai sensor yang memang `0`. Pada proyek sungguhan, kamu bisa mengubahnya menjadi `double?` (nullable) lalu menampilkan `"-"` atau `"Tidak ada data"` saat nilainya `null`.
 
 ---
 
 ### Langkah 24 — `app_provider.dart`
 
-Berisi **state management**: menyimpan data sensor terbaru dan memberi tahu tampilan setiap ada perubahan.
+Berisi **state management**: menyimpan data sensor terbaru dan memberi tahu tampilan setiap ada perubahan. Inilah **jembatan** antara `SensorService` (sumber data) dan `HomePage` (tampilan).
 
 ```dart
 import 'dart:async';
@@ -722,18 +1281,51 @@ class AppProvider extends ChangeNotifier {
 }
 ```
 
-#### Penjelasan
+#### Peran `AppProvider`
 
-- **`import 'dart:async'`** dibutuhkan untuk tipe `StreamSubscription`.
-- **`extends ChangeNotifier`** membuat kelas ini bisa "memberi kabar" ke widget yang mendengarkannya lewat `notifyListeners()`.
-- **`service`** adalah objek `SensorService` yang dipakai untuk mengambil stream.
-- **`sensorData`** adalah **state**, yaitu data sensor terbaru. Awalnya `SensorModel()` berisi `0.0` semua.
-- **`StreamSubscription`** (`tempSubs`, `humiditySubs`, `soilSubs`) adalah "langganan" ke stream. Disimpan agar nanti bisa dihentikan.
-- **Constructor `AppProvider()`** berjalan saat objek dibuat. Di sini aplikasi mulai **berlangganan** ke tiga stream memakai `.listen(...)`.
-- Setiap ada nilai baru dari Firebase, bagian di dalam `listen` dijalankan:
-  1. `sensorData.copyWith(...)` membuat salinan data dengan satu sensor diperbarui.
-  2. `notifyListeners()` memberi tahu semua widget yang memakai provider ini untuk **membangun ulang tampilan** dengan data terbaru.
-- **`dispose()`** dipanggil saat provider dibuang. `cancel()` menghentikan langganan stream agar tidak terjadi **kebocoran memori** (*memory leak*). Tanda `?.` artinya hanya dijalankan jika objeknya tidak `null`.
+`AppProvider` adalah **"gudang data sensor"** yang punya tiga tugas:
+
+1. **Menyimpan** data sensor terbaru (`sensorData`).
+2. **Mendengarkan** perubahan dari Firebase lewat `SensorService`.
+3. **Mengumumkan** ke tampilan setiap data berubah (`notifyListeners()`).
+
+#### Penjelasan setiap bagian
+
+| Bagian kode | Penjelasan |
+|-------------|------------|
+| `import 'dart:async'` | Dibutuhkan untuk tipe `StreamSubscription`. |
+| `extends ChangeNotifier` | Memberi kemampuan "mengumumkan perubahan" lewat `notifyListeners()`. Inilah yang membuat kelas ini bisa dipakai oleh Provider. |
+| `service = SensorService()` | Objek `SensorService` untuk mengambil stream dari Firebase. |
+| `sensorData = SensorModel()` | **State**: data sensor terbaru. Awalnya `0.0` semua, sesuai nilai awal di model. |
+| `StreamSubscription? tempSubs` | **"Tiket langganan"** ke stream suhu. Disimpan agar langganan bisa dihentikan nanti. Tanda `?` karena baru diisi di dalam constructor. |
+| `AppProvider() { ... }` | **Constructor**: dijalankan **sekali** saat objek dibuat. Di sinilah langganan dimulai. |
+| `.listen((newtempvalue) { ... })` | Memasang "telinga" di stream: blok `{ ... }` dijalankan **setiap kali ada nilai baru**. Nilai barunya masuk sebagai `newtempvalue`. |
+| `sensorData.copyWith(temp: ...)` | Membuat `SensorModel` baru dengan **hanya suhu** yang diganti. |
+| `notifyListeners()` | **Lonceng pengumuman**: memberi tahu semua `Consumer` agar tampilan dibangun ulang. |
+| `dispose()` | Dipanggil saat provider dibuang. Menghentikan semua langganan agar tidak terjadi **kebocoran memori**. |
+
+#### Apa yang terjadi saat aplikasi berjalan?
+
+Dengan `lazy: false` di `main.dart`, provider dibuat **langsung saat aplikasi mulai**, bahkan sebelum `HomePage` dibuka.
+
+| Waktu | Kejadian | `sensorData` | Layar |
+|-------|----------|--------------|-------|
+| t0 | `main()` membuat `AppProvider`, tiga langganan dimulai | 0, 0, 0 | `SplashScreen` tampil |
+| t1 | Firebase mengirim nilai awal `DataSuhu = 30` → `copyWith` → `notifyListeners()` | 30, 0, 0 | belum ada `Consumer` yang aktif |
+| t2 | Nilai awal `DataKelembaban = 70` tiba | 30, 70, 0 | - |
+| t3 | Nilai awal `DataTanah = 45` tiba | 30, 70, 45 | - |
+| t4 | Pengguna menekan **Continue**, `HomePage` dibuat | 30, 70, 45 | Langsung menampilkan **30.0 °C, 70.0 %, 45.0 %** |
+| t5 | `DataSuhu` diubah menjadi `31.5` lewat Postman | 31.5, 70, 45 | Kartu suhu berubah menjadi **31.5 °C** |
+
+Keuntungannya: saat `HomePage` dibuka, datanya **sudah siap** karena provider sudah mendengarkan Firebase sejak awal.
+
+#### Hal penting yang sering terlewat
+
+- **Tiga stream = tiga langganan = tiga `StreamSubscription`.** Masing-masing disimpan terpisah agar bisa dihentikan satu per satu di `dispose()`.
+- **`notifyListeners()` ada di setiap `listen`.** Tanpanya, `sensorData` berubah tetapi layar tidak ikut berubah.
+- **`dispose()` mencegah kebocoran.** Tanpa `cancel()`, langganan tetap hidup walaupun provider sudah tidak dipakai.
+- **`copyWith` menjaga data sensor lain.** Suhu yang diperbarui tidak menghapus kelembaban dan tanah (lihat [Langkah 22](#langkah-22--sensor_modeldart)).
+- **Saat start, `notifyListeners()` terpanggil tiga kali** (satu per sensor) dan itu normal.
 
 ---
 
@@ -745,11 +1337,11 @@ Berisi **widget kustom** berupa kartu berbingkai yang menampilkan ikon sensor da
 import 'package:flutter/material.dart';
 
 class CustomReadField extends StatelessWidget {
-  String result;
-  Color borderColor;
-  String image;
+  final String result;
+  final Color borderColor;
+  final String image;
 
-  CustomReadField({
+  const CustomReadField({
     super.key,
     required this.result,
     required this.borderColor,
@@ -782,26 +1374,33 @@ class CustomReadField extends StatelessWidget {
 }
 ```
 
-#### Penjelasan
+#### Penjelasan `final` dan `const`
 
-**Parameter (data yang dikirim ke widget):**
+| Kata kunci | Letak | Fungsi |
+|------------|-------|--------|
+| `final` | Pada field `result`, `borderColor`, `image` | Nilainya **terkunci** setelah widget dibuat. Widget di Flutter bersifat *immutable*: kalau datanya berubah, Flutter membuat **widget baru**, bukan mengubah yang lama. |
+| `const` | Pada constructor `const CustomReadField(...)` | Mengizinkan objek dibuat sebagai **konstanta saat kompilasi**. Flutter bisa memakai ulang objek yang sama sehingga lebih hemat dan cepat. |
+
+> Karena `result` berisi angka sensor yang berubah saat aplikasi berjalan, pemanggilan di `HomePage` **tidak bisa** ditulis `const CustomReadField(...)`. Meski begitu, menulis `const` pada constructor tetap praktik yang baik dan membuat peringatan *lint* hilang.
+
+#### Parameter (data yang dikirim ke widget)
 
 | Parameter | Fungsi |
 |-----------|--------|
-| `result` | Teks nilai yang ditampilkan (misalnya `"30.0"`). |
+| `result` | Teks nilai yang ditampilkan (misalnya `"30.0 °C"`). |
 | `borderColor` | Warna bingkai kartu. |
 | `image` | Lokasi gambar di folder assets. |
 
 `required` berarti parameter **wajib diisi**. `StatelessWidget` dipakai karena widget ini hanya menampilkan data yang diberikan dari luar, tidak mengubah data sendiri.
 
-**Susunan tampilan (`build`):**
+#### Susunan tampilan (`build`)
 
 | Widget | Fungsi |
 |--------|--------|
 | `Container` | Kotak pembungkus. `width: double.infinity` membuatnya selebar layar (dikurangi margin). |
 | `margin` horizontal 24 | Jarak kartu dari tepi kiri/kanan layar. |
 | `padding` vertical 18 | Jarak isi kartu dari tepi atas/bawah bingkai. |
-| `BoxDecoration` | Hiasan kotak: sudut membulat (`circular(24)`) dan bingkai tebal 4 piksel dengan warna `borderColor`. |
+| `BoxDecoration` | Hiasan kotak: sudut membulat (`circular(24)`) dan bingkai tebal 4 piksel berwarna `borderColor`. |
 | `Column` | Menyusun isi **vertikal**: gambar, jarak, lalu teks. |
 | `SizedBox` + `MediaQuery` | Ukuran gambar dibuat **seperlima lebar layar** (`width / 5`) agar menyesuaikan ukuran layar. |
 | `Image.asset(image)` | Menampilkan gambar dari assets. `BoxFit.fill` memenuhi seluruh kotak. |
@@ -809,8 +1408,6 @@ class CustomReadField extends StatelessWidget {
 | `Center(child: Text(result))` | Menampilkan nilai sensor di tengah. |
 
 > 📌 **Alamat gambar** diisi dengan path lengkap dari root project, yaitu `'assets/thermometer.png'` (bukan hanya `'thermometer.png'`), sesuai folder yang didaftarkan di `pubspec.yaml`.
->
-> 💡 Pada kode di atas, field `result`, `borderColor`, `image` sebaiknya diberi `final` (`final String result;`) karena widget bersifat *immutable*. Tanpa `final`, aplikasi tetap jalan tetapi muncul peringatan lint.
 
 ---
 
@@ -851,7 +1448,7 @@ class HomePage extends StatelessWidget {
               children: [
                 // TEMPERATUR
                 CustomReadField(
-                  result: "${appProvider.sensorData.temp}",
+                  result: "${appProvider.sensorData.temp.toStringAsFixed(1)} °C",
                   borderColor: const Color(0xff36725D),
                   image: 'assets/thermometer.png'
                 ),
@@ -860,7 +1457,7 @@ class HomePage extends StatelessWidget {
 
                 // HUMIDITY
                 CustomReadField(
-                  result: "${appProvider.sensorData.humidity}",
+                  result: "${appProvider.sensorData.humidity.toStringAsFixed(1)} %",
                   borderColor: const Color(0xff36725D),
                   image: 'assets/humidity_sensor.png',
                 ),
@@ -869,7 +1466,7 @@ class HomePage extends StatelessWidget {
 
                 // SOIL MOISTURE
                 CustomReadField(
-                  result: "${appProvider.sensorData.soil}",
+                  result: "${appProvider.sensorData.soil.toStringAsFixed(1)} %",
                   borderColor: const Color(0xff36725D),
                   image: 'assets/soil_analysis.png',
                 ),
@@ -891,12 +1488,34 @@ class HomePage extends StatelessWidget {
   - `title` memakai `GoogleFonts.roboto(...)` (font Roboto, ukuran 14, tebal).
   - `centerTitle: true` membuat judul di tengah.
   - `automaticallyImplyLeading: false` **menyembunyikan tombol back** otomatis, karena halaman ini dibuka dari splash screen.
-  - `backgroundColor: Color(0xff36725D)` memberi warna hijau. Format `0xff` + `36725D`: `ff` adalah transparansi penuh (tidak transparan), `36725D` adalah kode warna hex.
+  - `backgroundColor: Color(0xff36725D)` memberi warna hijau. Format `0xff` + `36725D`: `ff` adalah tingkat opasitas penuh (tidak transparan), `36725D` adalah kode warna hex.
 - **`Center` + `ListView`**: `shrinkWrap: true` membuat `ListView` hanya setinggi isinya sehingga bisa diletakkan **di tengah layar** oleh `Center`. `NeverScrollableScrollPhysics` **mematikan scroll**.
-- **Tiga `CustomReadField`** menampilkan suhu, kelembaban udara, dan kelembaban tanah:
-  - `"${appProvider.sensorData.temp}"` memasukkan angka `double` ke dalam teks (*string interpolation*).
-  - `image` menunjuk ke file di folder assets.
+- **Tiga `CustomReadField`** menampilkan suhu, kelembaban udara, dan kelembaban tanah. Nilainya diambil dari `appProvider.sensorData`.
 - **`SizedBox(height: 20)`** memberi jarak antar kartu.
+
+#### Membatasi angka di belakang koma dengan `toStringAsFixed(1)`
+
+Nilai sensor asli sering memiliki banyak angka di belakang koma, misalnya `28.4567891`. Jika ditampilkan apa adanya, tampilan jadi berantakan dan lebarnya berubah-ubah. Karena itu dipakai `toStringAsFixed(1)`:
+
+```dart
+"${appProvider.sensorData.temp.toStringAsFixed(1)} °C"
+```
+
+| Bagian | Arti |
+|--------|------|
+| `toStringAsFixed(1)` | Mengubah `double` menjadi **teks dengan tepat 1 angka di belakang koma** (dibulatkan). |
+| `"${ ... }"` | *String interpolation*: menyisipkan hasil ekspresi ke dalam teks. |
+| `" °C"` / `" %"` | Satuan ditambahkan di belakang angka. |
+
+| Nilai `double` | Hasil `toStringAsFixed(1)` | Tampil di layar |
+|----------------|----------------------------|-----------------|
+| `28.4567891` | `"28.5"` | `28.5 °C` |
+| `30.0` | `"30.0"` | `30.0 °C` |
+| `30` (dari `int`) | `"30.0"` | `30.0 °C` |
+| `28.04` | `"28.0"` | `28.0 °C` |
+| `100.0` | `"100.0"` | `100.0 %` |
+
+Hal ini berguna saat nanti dihubungkan dengan sensor sungguhan yang mengirim banyak desimal: **layar tetap menampilkan satu angka di belakang koma**, sedangkan nilai aslinya di `sensorData` **tetap utuh** karena pembulatan hanya terjadi saat ditampilkan.
 
 > Jika layar kecil dan kartu terpotong, hapus baris `physics: const NeverScrollableScrollPhysics()` agar halaman bisa di-scroll.
 
