@@ -31,7 +31,7 @@ class HomePage extends StatelessWidget {
               children: [
                 // TEMPERATUR
                 CustomReadField(
-                  result: "${appProvider.sensorData.temp}", 
+                  result: "${appProvider.sensorData.temp.toStringAsFixed(1)} °C", 
                   borderColor: const Color(0xff36725D), 
                   image: 'thermometer.png'
                 ),
@@ -40,7 +40,7 @@ class HomePage extends StatelessWidget {
 
                 // HUMIDITY
                 CustomReadField(
-                  result: "${appProvider.sensorData.humidity}",
+                  result: "${appProvider.sensorData.humidity.toStringAsFixed(1)} %",
                   borderColor: const Color(0xff36725D),
                   image: 'humidity_sensor.png',
                 ),
@@ -49,7 +49,7 @@ class HomePage extends StatelessWidget {
 
                 // SOIL MOISTURE
                 CustomReadField(
-                  result: "${appProvider.sensorData.soil}",
+                  result: "${appProvider.sensorData.soil.toStringAsFixed(1)} %",
                   borderColor: const Color(0xff36725D),
                   image: 'soil_analysis.png',
                 ),

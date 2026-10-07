@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 
-// ignore: must_be_immutable
 class CustomReadField extends StatelessWidget {
-  String result;
-  Color borderColor;
-  String image;
+  final String result;
+  final Color borderColor;
+  final String image;
 
-  CustomReadField({
+  const CustomReadField({
     super.key,
     required this.result,
     required this.borderColor,
